@@ -1,79 +1,504 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<title>Beispiel</title>
+		<link rel="stylesheet" href="style.css">
+	</head>
+	<body>
+		<h1 class="headline physics-element">Noch kein Spiel, aber ein Anfang</h1>
+		<div class="physics-element box right"></div>
+		<div class="physics-element box left"></div>
+		<div class="physics-element box right"></div>
+		<div class="physics-element box left"></div>
+		<div class="physics-element box right"></div>
+		<div class="physics-element box left"></div>
+		<script src="physicsjs-full.js"></script>
+		<script>
+			var delta = [ 0, 0 ];
+			var stage = [ window.screenX, window.screenY, window.innerWidth, window.innerHeight ];
+			getBrowserDimensions();
 
-  <head>
-    <meta charset='utf-8' />
-    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="Spiel : " />
+			var isRunning = false;
+			var isMouseDown = false;
 
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+			var worldAABB;
+			var world;
+			var edgeBounce;
+			var iterations = 16;
+			var timeStep = 1000 / 260; 
 
-    <title>Spiel</title>
-  </head>
+			var constraints;
+			var mouseJoint;
+			var mouse = { x: 0, y: 0 };
 
-  <body>
+			var mouseOnClick = [];
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/csicar/Spiel">View on GitHub</a>
+			var elements = [];
+			var bodies = [];
+			var properties = [];
 
-          <h1 id="project_title">Spiel</h1>
-          <h2 id="project_tagline"></h2>
+			var query, page = 0;
 
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/csicar/Spiel/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/csicar/Spiel/tarball/master">Download this project as a tar.gz file</a>
-            </section>
-        </header>
-    </div>
+			var gWebSearch, gImageSearch;
+			var imFeelingLuckyMode = false;
+			var resultBodies = [];
 
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-        <h3>
-<a name="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
+			var gravity = { x: 0, y: 1 };
+			var gravityBehavior;
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+			init();
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
-</code></pre>
+			//
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+			function init() {
 
-<h3>
-<a name="designer-templates" class="anchor" href="#designer-templates"><span class="octicon octicon-link"></span></a>Designer Templates</h3>
+				document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+				document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+				document.addEventListener( 'mousemove', onDocumentMouseMove, false );
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
+				document.addEventListener( 'keyup', onDocumentKeyUp, false );
 
-<h3>
-<a name="rather-drive-stick" class="anchor" href="#rather-drive-stick"><span class="octicon octicon-link"></span></a>Rather Drive Stick?</h3>
 
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+				document.addEventListener( 'touchstart', onDocumentTouchStart, false );
+				document.addEventListener( 'touchmove', onDocumentTouchMove, false );
+				document.addEventListener( 'touchend', onDocumentTouchEnd, false );
 
-<h3>
-<a name="authors-and-contributors" class="anchor" href="#authors-and-contributors"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
+				window.addEventListener( 'deviceorientation', onWindowDeviceOrientation, false );
 
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+				// init PhysicsJS
 
-<h3>
-<a name="support-or-contact" class="anchor" href="#support-or-contact"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
+				worldAABB = Physics.aabb.apply(null, stage);
 
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
-      </section>
-    </div>
+				world = Physics({
+					timestep: timeStep,
+					maxIPF: iterations
+				});
 
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">Spiel maintained by <a href="https://github.com/csicar">csicar</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
+				// walls
+				edgeBounce = Physics.behavior('edge-collision-detection', {
+	                aabb: worldAABB,
+	                restitution: 0.4,
+	                cof: 0.5
+	            });
+	            world.add( edgeBounce );
 
-    
+	            world.add( Physics.behavior('body-collision-detection', { checkAll: false }) );
+		        world.add( Physics.behavior('sweep-prune') );
+		        world.add( Physics.behavior('body-impulse-response') );
 
-  </body>
+		        // constraints
+		        constraints = Physics.behavior('verlet-constraints', {
+                    iterations: 2
+                });
+                world.add( constraints );
+
+		        // add gravity
+		        gravityBehavior = Physics.behavior('constant-acceleration', { acc: gravity });
+        		world.add( gravityBehavior );
+
+				// Get physics-element elements
+
+				elements = getElementsByClass("physics-element");//correct again
+
+				for ( var i = 0; i < elements.length; i ++ ) {
+
+					properties[i] = getElementProperties( elements[i] );
+
+				}
+
+				for ( var i = 0; i < elements.length; i ++ ) {
+
+					var element = elements[ i ];
+					element.style.position = 'absolute';
+					element.style.left = ( - properties[i][2]/2) + 'px'; // will be set by renderer
+					element.style.top = ( - properties[i][3]/2) + 'px';
+					element.style.width = properties[i][2] + 'px';
+					element.addEventListener( 'mousedown', onElementMouseDown, false );
+					element.addEventListener( 'mouseup', onElementMouseUp, false );
+					element.addEventListener( 'click', onElementClick, false );
+
+					bodies[i] = Physics.body('convex-polygon', {
+						x: properties[i][0] + properties[i][2]/2,
+						y: properties[i][1] + properties[i][3]/2,
+						vertices: [
+							{ x: 0, y: 0 },
+							{ x: properties[i][2], y: 0 },
+							{ x: properties[i][2], y: properties[i][3] },
+							{ x: 0, y: properties[i][3] }
+						]
+					});
+					bodies[i].view = element;
+
+					// Clean position dependencies
+
+					while ( element.offsetParent ) {
+
+						element = element.offsetParent;
+						element.style.position = 'static';
+
+					}
+
+				}
+
+				// add the bodies to the world
+				world.add( bodies );
+				// renderer
+	            var renderer = Physics.renderer('dom', {
+		            el: document.body,
+		            width: window.innerWidth,
+		            height: window.innerHeight,
+		        });
+				world.add( renderer );
+				// position the views
+				world.render();
+				world.pause();
+
+				Physics.util.ticker.subscribe( loop );
+				Physics.util.ticker.start();
+
+				// magic to trigger GPU
+				world.subscribe('render', function( data ){
+					var style;
+					for ( var i = 0, l = data.bodies.length; i < l; ++i ){
+						
+						style = data.bodies[ i ].view.style;
+						style.WebkitTransform += ' translateZ(0)';
+						style.MozTransform += ' translateZ(0)';
+						style.MsTransform += ' translateZ(0)';
+						style.transform += ' translateZ(0)';
+					}
+				});
+			}
+
+			function run() {
+
+				world.unpause();
+
+			}
+
+			//
+
+			function onDocumentMouseDown( event ) {
+
+				isMouseDown = true;
+
+			}
+
+			function onDocumentMouseUp( event ) {
+
+				isMouseDown = false;
+
+			}
+
+			function onDocumentMouseMove( event ) {
+
+				if ( world.isPaused() ) run();
+
+				mouse.x = event.clientX;
+				mouse.y = event.clientY;
+
+			}
+
+			function onDocumentKeyUp( event ) {
+
+				if ( event.keyCode == 13 ) search();
+
+			}
+
+			function onDocumentTouchStart( event ) {
+
+				if ( event.touches.length == 1 ) {
+
+					if ( !isRunning ) {
+
+						run();
+
+					}
+
+					mouse.x = event.touches[0].pageX;
+					mouse.y = event.touches[0].pageY;
+					isMouseDown = true;
+				}
+			}
+
+			function onDocumentTouchMove( event ) {
+
+				if ( event.touches.length == 1 ) {
+
+					event.preventDefault();
+
+					mouse.x = event.touches[0].pageX;
+					mouse.y = event.touches[0].pageY;
+
+				}
+
+			}
+
+			function onDocumentTouchEnd( event ) {
+
+				if ( event.touches.length == 0 ) {
+
+					isMouseDown = false;
+				}
+
+			}
+
+			function onWindowDeviceOrientation( event ) {
+
+				if ( event.beta ) {
+
+					gravity.x = Math.sin( event.gamma * Math.PI / 180 );
+					gravity.y = Math.sin( ( Math.PI / 4 ) + event.beta * Math.PI / 180 );
+
+				}
+
+			}
+
+			//
+
+			function onElementMouseDown( event ) {
+
+				event.preventDefault();
+
+				mouseOnClick[0] = event.clientX;
+				mouseOnClick[1] = event.clientY;
+
+			}
+
+			function onElementMouseUp( event ) {
+
+				event.preventDefault();
+
+			}
+
+			function onElementClick( event ) {
+
+				var range = 5;
+
+				if ( mouseOnClick[0] > event.clientX + range || mouseOnClick[0] < event.clientX - range &&
+				     mouseOnClick[1] > event.clientY + range || mouseOnClick[1] < event.clientY - range ) {
+
+					event.preventDefault();
+
+				}
+
+				if ( event.target == document.getElementById( 'btnG' ) ) search();
+				if ( event.target == document.getElementById( 'btnI' ) ) imFeelingLucky();
+				if ( event.target == document.getElementById( 'q' ) ) document.getElementById('q').focus();
+
+			}
+
+			
+
+			function addWeb( data ) {
+
+				var element = document.createElement('div');
+				element.innerHTML = '<div class="result"><div class="title"><a href="' + data.unescapedUrl + '" target="_blank">' + data.title + '</a></div><div class="url">' + data.visibleUrl + '</div><div class="content">' + data.content + '</div>';
+
+				document.body.appendChild( element );
+
+				properties.push( [ Math.random() * ( window.innerWidth / 2 ), - 200, 546, element.offsetHeight ] );
+
+				var i = properties.length - 1;
+
+				element.style.position = 'absolute';
+				element.style.left = 0 + 'px';
+				element.style.top = - 100 + 'px';
+				element.style.backgroundColor = '#ffffff';
+				element.addEventListener( 'mousedown', onElementMouseDown, false );
+				element.addEventListener( 'mouseup', onElementMouseUp, false );
+				element.addEventListener( 'click', onElementClick, false );
+
+				elements[i] = element;
+
+				resultBodies.push( bodies[i] = createBox( world, properties[i][0] + ( properties[i][2] >> 1 ), properties[i][1] + ( properties[i][3] >> 1 ), properties[i][2] / 2, properties[i][3] / 2, false, element ) );
+
+			}
+
+			function addImage( data ) {
+
+				var element = document.createElement( 'img' );
+				element.style.display = 'none';
+				element.style.cursor = 'pointer';
+				element.addEventListener( 'load', function () {
+
+					properties.push( [ Math.random() * ( window.innerWidth / 2 ), - 200, element.width, element.height ] );
+
+					var i = properties.length - 1;
+
+					element.style.display = 'block';
+					element.style.position = 'absolute';
+					element.style.left = 0 + 'px';
+					element.style.top = - 200 + 'px';
+					element.style.backgroundColor = '#ffffff';
+					element.addEventListener( 'mousedown', onElementMouseDown, false );
+					element.addEventListener( 'mouseup', onElementMouseUp, false );
+					element.addEventListener( 'click', onElementClick, false );
+					element.addEventListener( 'click', function ( event ) {
+
+						var range = 5;
+
+						if ( mouseOnClick[0] < event.clientX + range && mouseOnClick[0] > event.clientX - range &&
+						     mouseOnClick[1] < event.clientY + range && mouseOnClick[1] > event.clientY - range ) {
+
+							window.open( data.unescapedUrl );
+
+						}
+
+					}, false );
+
+					elements[i] = element;
+
+					resultBodies.push( bodies[i] = createBox( world, properties[i][0] + ( properties[i][2] >> 1 ), properties[i][1] + ( properties[i][3] >> 1 ), properties[i][2] / 2, properties[i][3] / 2, false, element ) );
+
+				}, false );
+				element.src = data.tbUrl;
+				document.body.appendChild( element );
+
+			}
+
+			//
+
+			function loop( time ) {
+
+				if (getBrowserDimensions())
+					setWalls();
+
+				delta[0] += (0 - delta[0]) * .5;
+				delta[1] += (0 - delta[1]) * .5;
+
+				gravityBehavior.setAcceleration({ 
+					x: gravity.x * 5e-4 + delta[0], 
+					y: gravity.y * 5e-4 + delta[1]
+				});
+
+				mouseDrag();
+				world.step( time );
+				// only render if not paused
+	            if ( !world.isPaused() ){
+	                world.render();
+	            }
+			}
+
+
+			function mouseDrag() {
+
+				// mouse press
+				if (isMouseDown && !mouseJoint) {
+
+					var body = getBodyAtMouse();
+
+					if (body) {
+
+						var md = Physics.body('point', {
+							x: mouse.x,
+							y: mouse.y
+						});
+						mouseJoint = constraints.distanceConstraint(md, body, 0.2);
+					}
+				}
+
+				// mouse release
+				if (!isMouseDown) {
+
+					if (mouseJoint) {
+
+						constraints.remove( mouseJoint );
+						mouseJoint = null;
+					}
+				}
+
+				// mouse move
+				if (mouseJoint) {
+
+					mouseJoint.bodyA.state.pos.set(mouse.x, mouse.y);
+				}
+			}
+
+			function getBodyAtMouse() {
+
+				return world.findOne({ $at: Physics.vector(mouse.x, mouse.y) });
+			}
+
+			function setWalls() {
+
+				worldAABB = Physics.aabb.apply(null, stage);
+            	edgeBounce.setAABB( worldAABB );
+
+			}
+
+			// .. UTILS
+
+			function getElementsByClass( searchClass ) {
+
+				var classElements = [];
+				var els = document.getElementsByTagName('*');
+				var elsLen = els.length
+
+				for (i = 0, j = 0; i < elsLen; i++) {
+
+					var classes = els[i].className.split(' ');
+					for (k = 0; k < classes.length; k++)
+						if ( classes[k] == searchClass )
+							classElements[j++] = els[i];
+				}
+
+				return classElements;
+			}
+
+			function getElementProperties( element ) {
+
+				var x = 0;
+				var y = 0;
+				var width = element.offsetWidth;
+				var height = element.offsetHeight;
+				
+				do {
+					
+					x += element.offsetLeft;
+					y += element.offsetTop;
+
+				} while ( element = element.offsetParent );
+
+				return [ x, y, width, height ];
+			}
+
+			function getBrowserDimensions() {
+
+				var changed = false;
+
+				if ( stage[0] != window.screenX ) {
+
+					delta[0] = (window.screenX - stage[0]) * 50;
+					stage[0] = window.screenX;
+					changed = true;
+				}
+
+				if ( stage[1] != window.screenY ) {
+
+					delta[1] = (window.screenY - stage[1]) * 50;
+					stage[1] = window.screenY;
+					changed = true;
+				}
+
+				if ( stage[2] != window.innerWidth ) {
+
+					stage[2] = window.innerWidth;
+					changed = true;
+				}
+
+				if ( stage[3] != window.innerHeight ) {
+
+					stage[3] = window.innerHeight;
+					changed = true;
+				}
+
+				return changed;
+			}
+
+		</script>
+
+	</body>
 </html>
